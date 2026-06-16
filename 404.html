@@ -44,13 +44,23 @@
   let path = rawPath.replace(/^\/+/, '/');
   if (path === '/' || path === '') path = '/';
 
-  // 抓取最新版本配置
-  // latest.json 总是在根目录（与 index.html 同一级）
-  // 使用 ./ 确保相对当前路径，GitHub Pages 子路径下也能工作
-  const latestUrl = new URL('latest.json', location.pathname.endsWith('/') ? location.href : location.href.replace(/\/[^/]*$/, '/')).href;
+  // 解析要前往的路径
+  // GitHub Pages 等子路径部署：用户访问 /atm-redirector/lesson/l1
+  // 我们要去掉 /atm-redirector 前缀，传 /lesson/l1 给目标站
+  const fullPath = location.pathname + location.search + location.hash;
+  // 取当前 index.html 所在的目录（处理 GitHub Pages 子路径）
+  const scriptPath = document.currentScript ? document.currentScript.src : location.href;
+  const baseDir = scriptPath.substring(0, scriptPath.lastIndexOf('/') + 1);
+  const baseUrl = new URL('.', baseDir).href;
+  // 相对 baseUrl 算路径
+  const relPath = location.href.substring(baseUrl.length) || '';
+  const targetPath = relPath || '/';
+
+  // latest.json 在 index.html 同目录
+  const latestUrl = new URL('latest.json', baseDir).href;
   let latest;
   try {
-    const r = await fetch(latestUrl + (latestUrl.includes('?') ? '&' : '?') + 't=' + Date.now(), { cache: 'no-store' });
+    const r = await fetch(latestUrl + '?t=' + Date.now(), { cache: 'no-store' });
     if (!r.ok) throw new Error('HTTP ' + r.status);
     latest = await r.json();
   } catch (e) {
@@ -69,9 +79,8 @@
   verEl.textContent = '版本 ' + (latest.version || '?') + ' · ' +
     (latest.note || '');
 
-  // 目标 URL：保留原路径
-  // 注意：import 参数（progress base64）会通过 URL 传到新版本，让那边写 localStorage
-  const target = latest.url.replace(/\/+$/, '') + path;
+  // 目标 URL：去掉部署子路径后的相对路径
+  const target = latest.url.replace(/\/+$/, '') + (targetPath.startsWith('/') ? targetPath : '/' + targetPath);
 
   // 短暂停顿让用户看到过渡，再跳转
   setTimeout(() => { location.replace(target); }, 350);

@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>动中觉察 · 跳转中…</title>
+<style>
+  body{margin:0;min-height:100vh;background:#f5efde;color:#1f1d1a;
+    font-family:"Noto Serif CJK SC","Songti SC",Georgia,serif;
+    display:flex;align-items:center;justify-content:center;padding:24px}
+  .box{max-width:520px;text-align:center}
+  h1{font-weight:400;font-size:28px;margin:0 0 12px;letter-spacing:0.1em}
+  p{color:#4a4640;line-height:1.7;margin:8px 0}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;
+    background:#b3541e;margin:0 3px;animation:b 1.2s infinite ease-in-out}
+  .dot:nth-child(2){animation-delay:.2s}
+  .dot:nth-child(3){animation-delay:.4s}
+  @keyframes b{0%,80%,100%{opacity:.3;transform:scale(.8)}40%{opacity:1;transform:scale(1.2)}}
+  a{color:#b3541e;text-decoration:none;border-bottom:1px solid #b3541e}
+  .err{color:#a83232;background:#fbeaea;border:1px solid #e8c5c5;
+    padding:12px;border-radius:6px;margin-top:16px;display:none}
+  .ver{font-size:12px;color:#888;margin-top:24px}
+</style>
+</head>
+<body>
+<div class="box">
+  <h1>动 中 觉 察</h1>
+  <p>正在为你定位最新版本…</p>
+  <p><span class="dot"></span><span class="dot"></span><span class="dot"></span></p>
+  <div id="err" class="err"></div>
+  <p class="ver" id="ver"></p>
+</div>
+
+<script>
+(async function() {
+  const err = document.getElementById('err');
+  const verEl = document.getElementById('ver');
+
+  // 解析要前往的路径（默认 /）
+  // 支持的形式: /  /lesson/l1  /bodyParts  /search
+  // 也支持完整 URL 以便直接调试
+  const rawPath = location.pathname + location.search + location.hash;
+  // 去掉开头的 /atm/ 前缀（如果用户通过子路径访问）
+  let path = rawPath.replace(/^\/+/, '/');
+  if (path === '/' || path === '') path = '/';
+
+  // 抓取最新版本配置
+  // 使用相对路径，支持任意子路径部署（GitHub Pages 等）
+  const baseUrl = location.pathname.replace(/\/index\.html$/, '').replace(/\/[^/]*$/, '/');
+  const latestUrl = (baseUrl || './') + 'latest.json';
+  let latest;
+  try {
+    const r = await fetch(latestUrl + '?t=' + Date.now(), { cache: 'no-store' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    latest = await r.json();
+  } catch (e) {
+    err.style.display = 'block';
+    err.textContent = '获取最新版本失败: ' + e.message + '。请稍后再试。';
+    console.error(e);
+    return;
+  }
+
+  if (!latest || !latest.url) {
+    err.style.display = 'block';
+    err.textContent = 'latest.json 配置异常，缺少 url 字段。';
+    return;
+  }
+
+  verEl.textContent = '版本 ' + (latest.version || '?') + ' · ' +
+    (latest.note || '');
+
+  // 目标 URL：保留原路径
+  // 注意：import 参数（progress base64）会通过 URL 传到新版本，让那边写 localStorage
+  const target = latest.url.replace(/\/+$/, '') + path;
+
+  // 短暂停顿让用户看到过渡，再跳转
+  setTimeout(() => { location.replace(target); }, 350);
+})();
+</script>
+</body>
+</html>

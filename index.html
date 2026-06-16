@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<base href="" id="baseTag" />
 <title>动中觉察 · 跳转中…</title>
 <style>
   body{margin:0;min-height:100vh;background:#f5efde;color:#1f1d1a;
@@ -36,31 +37,43 @@
   const err = document.getElementById('err');
   const verEl = document.getElementById('ver');
 
-  // 解析要前往的路径（默认 /）
-  // 支持的形式: /  /lesson/l1  /bodyParts  /search
-  // 也支持完整 URL 以便直接调试
-  const rawPath = location.pathname + location.search + location.hash;
-  // 去掉开头的 /atm/ 前缀（如果用户通过子路径访问）
-  let path = rawPath.replace(/^\/+/, '/');
-  if (path === '/' || path === '') path = '/';
+  // 关键：用 <base> 标签告诉浏览器我们 index.html 在哪
+  // 然后计算相对路径
+  // 当前 index.html 的 URL → 去掉文件名 → 得到 base 目录
+  // 例: https://wcaca.github.io/atm-redirector/lesson/l1
+  //     ↑ origin                          ↑ base dir = "/atm-redirector/"
+  // 例: https://example.com/lesson/l1
+  //     ↑ origin      ↑ base dir = "/"
+  const here = location.pathname;
+  // 如果 URL 末尾是 /index.html，去掉
+  let baseDir;
+  if (here.endsWith('/index.html')) {
+    baseDir = here.replace(/\/index\.html$/, '/');
+  } else if (here.endsWith('/')) {
+    baseDir = here;
+  } else {
+    // 用户访问 /atm-redirector/lesson/l1 → baseDir 应该是 /atm-redirector/
+    // 找到最后一段已知路径（GitHub Pages: 仓库名）
+    // 启发式：去掉最后一段非文件路径
+    baseDir = here.replace(/\/[^/]+\/?$/, '/');
+  }
+  // 设置 <base> 让 fetch 走相对路径
+  document.getElementById('baseTag').href = baseDir;
 
-  // 解析要前往的路径
-  // GitHub Pages 等子路径部署：用户访问 /atm-redirector/lesson/l1
-  // 我们要去掉 /atm-redirector 前缀，传 /lesson/l1 给目标站
-  const fullPath = location.pathname + location.search + location.hash;
-  // 取当前 index.html 所在的目录（处理 GitHub Pages 子路径）
-  const scriptPath = document.currentScript ? document.currentScript.src : location.href;
-  const baseDir = scriptPath.substring(0, scriptPath.lastIndexOf('/') + 1);
-  const baseUrl = new URL('.', baseDir).href;
-  // 相对 baseUrl 算路径
-  const relPath = location.href.substring(baseUrl.length) || '';
-  const targetPath = relPath || '/';
+  // 计算要传给目标站的相对路径
+  // baseDir = /atm-redirector/ → 访问 /atm-redirector/lesson/l1 → 相对 = lesson/l1
+  // baseDir = /              → 访问 /lesson/l1              → 相对 = lesson/l1
+  let relPath = here.substring(baseDir.length - 1);
+  // 去掉开头的 /，再加回来
+  if (!relPath.startsWith('/')) relPath = '/' + relPath;
+  if (relPath === '' || relPath === '/') relPath = '/';
+  // 保留 query + hash
+  relPath = relPath + location.search + location.hash;
 
-  // latest.json 在 index.html 同目录
-  const latestUrl = new URL('latest.json', baseDir).href;
+  // 抓取 latest.json（用 <base> 相对路径）
   let latest;
   try {
-    const r = await fetch(latestUrl + '?t=' + Date.now(), { cache: 'no-store' });
+    const r = await fetch('latest.json?t=' + Date.now(), { cache: 'no-store' });
     if (!r.ok) throw new Error('HTTP ' + r.status);
     latest = await r.json();
   } catch (e) {
@@ -79,8 +92,8 @@
   verEl.textContent = '版本 ' + (latest.version || '?') + ' · ' +
     (latest.note || '');
 
-  // 目标 URL：去掉部署子路径后的相对路径
-  const target = latest.url.replace(/\/+$/, '') + (targetPath.startsWith('/') ? targetPath : '/' + targetPath);
+  // 目标 URL：基础 URL + 相对路径
+  const target = latest.url.replace(/\/+$/, '') + relPath;
 
   // 短暂停顿让用户看到过渡，再跳转
   setTimeout(() => { location.replace(target); }, 350);

@@ -38,24 +38,46 @@
 
   // 当前页面路径，如 /atm-redirector/lesson/l1
   const here = location.pathname;
-  // 推断 index.html 所在目录（去掉最后一段）
-  // 启发式：删掉末尾第一个 .html 或最后一段 /xxx
-  let baseDir;
-  if (here.endsWith('/index.html')) {
-    baseDir = here.slice(0, -('index.html'.length));
+  // 推断 index.html 所在目录
+  // GitHub Pages 仓库部署在 /仓库名/ 子路径下
+  // 简单方法：检查这里是什么仓库 / 什么路径
+  // 策略：看当前路径有多少 /, 第一段很可能是仓库名
+  // 更可靠：从 <link rel="canonical"> 或 favicon 反推
+  // 最简单可靠：从 fetch 一个已知相对路径看返回什么
+  // 但我们已经知道 index.html 在 /atm-redirector/ 之类
+  // 用动态探测：取 path 第一段作为仓库名
+  const parts = here.split('/').filter(Boolean);  // ['atm-redirector', 'lesson', 'l1']
+  // 仓库名 = 第一个段（GitHub Pages 项目站点）
+  // 用户站点（user/org pages）仓库名是空的，这种情况 parts[0] 是路径
+  // 区别：pages URL 形如：
+  //   项目：/repo-name/path
+  //   用户：/path  （无 repo-name）
+  // 启发式：如果 parts[0] 不包含 'index' 且存在该 URL = 404 仓库，parts[0] 是仓库名
+  // 更简单：探测是否 parts[0] 是仓库（看是否根目录能 GET）
+  // 我们直接用 <link rel="canonical"> 试试
+  let baseDir = '/';
+  if (parts.length >= 2) {
+    // 可能是项目仓库（parts[0] 是仓库名）
+    // 试探：fetch /parts[0]/ + 'latest.json'，看 200 还是 404
+    // 同步不行，异步——所以直接假设
+    baseDir = '/' + parts[0] + '/';
+  } else if (parts.length === 1) {
+    // parts = ['atm-redirector'] 或 ['l1']
+    // 看是不是仓库名
+    // 默认假设是仓库名
+    baseDir = '/' + parts[0] + '/';
   } else {
-    // 删掉最后一段
-    const lastSlash = here.lastIndexOf('/');
-    baseDir = lastSlash >= 0 ? here.slice(0, lastSlash + 1) : '/';
+    baseDir = '/';
   }
-  // baseDir 现在形如 "/atm-redirector/" 或 "/" 或 "/atm-redirector"
-  // 确保末尾是 /
-  if (!baseDir.endsWith('/')) baseDir += '/';
 
   // 计算相对路径 = here - baseDir
   // 例: here="/atm-redirector/lesson/l1", baseDir="/atm-redirector/" → "/lesson/l1"
-  // 例: here="/", baseDir="/" → "/"
-  let relPath = baseDir === '/' ? (here || '/') : here.substring(baseDir.length - 1);
+  let relPath;
+  if (baseDir === '/') {
+    relPath = here || '/';
+  } else {
+    relPath = here.substring(baseDir.length - 1);
+  }
   if (!relPath.startsWith('/')) relPath = '/' + relPath;
   if (!relPath) relPath = '/';
   relPath = relPath + location.search + location.hash;

@@ -1,6 +1,7 @@
 {
-  "version": "v27",
-  "url": "https://9jzsa53sk1m9.space.minimaxi.com",
-  "note": "PWA (manifest + sw + 图标 + 离线缓存) + Admin 批量操作",
-  "updatedAt": "2026-06-17"
+  "version": "v28",
+  "date": "2026-06-17",
+  "notes": "12 \u8bfe\u4e3b\u97f3\u9891 9 part + 381 \u6bb5\u843d AI \u97f3\u9891 + afterword \u97f3\u9891",
+  "url": "https://hfdbg9l4tuvo.space.minimaxi.com",
+  "fallback": "https://atm.noteverse.space"
 }
